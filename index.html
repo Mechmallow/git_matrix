@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub 贡献图设计器</title>
+    <style>
+        /* --- General & Font Styles (Replaces Google Fonts & Tailwind Base) --- */
+        :root {
+            --color-bg: #f3f4f6;
+            --color-text: #1f2937;
+            --color-text-light: #4b5563;
+            --color-panel-bg: #ffffff;
+            --color-border: #d1d5db;
+            --color-input-bg: #f9fafb;
+            --color-primary: #2563eb;
+            --color-primary-hover: #1d4ed8;
+            --color-shadow: rgba(0, 0, 0, 0.1);
+            
+            --level-0: #ebedf0;
+            --level-1: #9be9a8;
+            --level-2: #40c463;
+            --level-3: #30a14e;
+            --level-4: #216e39;
+            --cell-disabled: #e2e2e2;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            margin: 0;
+            padding: 1rem;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* --- Layout --- */
+        .container { max-width: 1200px; margin: auto; padding: 1rem; }
+        header { text-align: center; margin-bottom: 2rem; }
+        main { background-color: var(--color-panel-bg); padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px var(--color-shadow); }
+        footer { margin-top: 3rem; }
+
+        /* --- Typography --- */
+        h1 { font-size: 2.25rem; font-weight: 700; margin: 0; }
+        h2 { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 1.5rem; }
+        p { margin-top: 0.5rem; color: var(--color-text-light); }
+        label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; color: var(--color-text-light); }
+
+        /* --- Forms --- */
+        .form-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+        @media (min-width: 768px) { .form-grid { grid-template-columns: repeat(3, 1fr); } }
+        
+        .input-group > div { margin-bottom: 1rem; }
+        @media (min-width: 1024px) { 
+            .input-group { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start; } 
+            .input-group > div { margin-bottom: 0; }
+        }
+
+        input[type="text"], input[type="email"], textarea, select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            background-color: var(--color-input-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 0.375rem;
+            box-shadow: inset 0 1px 2px var(--color-shadow);
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4);
+        }
+        textarea { min-height: 80px; resize: vertical; }
+        button {
+            background-color: var(--color-primary);
+            color: white;
+            font-weight: 700;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 var(--color-shadow);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: var(--color-primary-hover); }
+
+        /* --- Contribution Grid & Palette --- */
+        .contribution-grid {
+            display: grid;
+            grid-template-rows: repeat(7, 1fr);
+            grid-auto-flow: column;
+            grid-auto-columns: 1fr;
+            gap: 3px;
+            padding: 0.5rem;
+            background-color: var(--color-panel-bg);
+            border: 1px solid #e2e2e2;
+            border-radius: 0.375rem;
+        }
+        .grid-cell {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: transform 0.1s ease-in-out;
+            background-color: var(--level-0);
+        }
+        .grid-cell:not(.disabled):hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .grid-cell.disabled { background-color: var(--cell-disabled); cursor: not-allowed; }
+        .level-0 { background-color: var(--level-0); }
+        .level-1 { background-color: var(--level-1); }
+        .level-2 { background-color: var(--level-2); }
+        .level-3 { background-color: var(--level-3); }
+        .level-4 { background-color: var(--level-4); }
+        
+        .palette { display: flex; align-items: center; gap: 0.5rem; }
+        .palette-color { width: 2rem; height: 2rem; border-radius: 0.375rem; cursor: pointer; }
+        .palette-color.active { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+        /* --- Font Preview --- */
+        .font-preview-wrapper { background-color: var(--color-panel-bg); padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px var(--color-shadow); }
+        .font-preview-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 1rem 1rem; }
+        .font-char-item { display: flex; flex-direction: column; align-items: center; }
+        .font-char-label { font-family: monospace; font-size: 0.875rem; margin-bottom: 0.25rem; }
+        .font-char-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; width: 50px; }
+        .font-cell { width: 100%; aspect-ratio: 1/1; border-radius: 1px; }
+
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container">
+        <header>
+            <h1>GitHub 贡献图设计器</h1>
+            <p>通过输入文本或手动绘制来设计你的贡献图艺术！</p>
+        </header>
+
+        <main>
+            <!-- 配置区域 -->
+            <div class="form-grid">
+                <div>
+                    <label for="repoName">仓库名称</label>
+                    <input type="text" id="repoName" placeholder="e.g., my-contribution-art">
+                </div>
+                <div>
+                    <label for="userName">Git 用户名</label>
+                    <input type="text" id="userName" placeholder="e.g., Your Name">
+                </div>
+                <div>
+                    <label for="userEmail">Git 邮箱</label>
+                    <input type="email" id="userEmail" placeholder="e.g., your.email@example.com">
+                </div>
+            </div>
+
+            <!-- 输入与绘制区域 -->
+            <div class="input-group">
+                <div>
+                    <div>
+                        <label for="yearSelect">选择年份</label>
+                        <select id="yearSelect"></select>
+                    </div>
+                    <div>
+                        <label for="textInput">输入文本 (大写)</label>
+                        <textarea id="textInput" placeholder="输入 'HELLO' 试试..."></textarea>
+                    </div>
+                    <div>
+                        <label>选择贡献等级 (画笔)</label>
+                        <div id="palette" class="palette"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label>贡献图预览</label>
+                    <div id="grid-container" class="contribution-grid"></div>
+                </div>
+            </div>
+
+            <!-- 生成按钮 -->
+            <div style="text-align: center; margin-top: 2rem;">
+                <button id="generateBtn">生成 pattern.json 配置文件</button>
+            </div>
+        </main>
+
+        <footer class="mt-12">
+            <h2>5x7 像素字库预览</h2>
+            <div class="font-preview-wrapper">
+                <div id="font-preview-container" class="font-preview-container"></div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Configuration and State ---
+            const ROWS = 7;
+            const COLS = 53;
+            const FONT_WIDTH = 5;
+            const FONT_HEIGHT = 7;
+            
+            let gridState = Array(ROWS).fill(0).map(() => Array(COLS).fill(0));
+            let disabledCells = Array(ROWS).fill(0).map(() => Array(COLS).fill(false));
+            let gridStartDate = new Date();
+            let selectedLevel = 1;
+            let isMouseDown = false;
+
+            const gridContainer = document.getElementById('grid-container');
+            const textInput = document.getElementById('textInput');
+            const generateBtn = document.getElementById('generateBtn');
+            const paletteContainer = document.getElementById('palette');
+            const fontPreviewContainer = document.getElementById('font-preview-container');
+            const yearSelect = document.getElementById('yearSelect');
+
+            const FONT_5x7 = {
+                'A': ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+                'B': ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+                'C': ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
+                'D': ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+                'E': ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+                'F': ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+                'G': ["01110", "10001", "10000", "10111", "10001", "10001", "01110"],
+                'H': ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+                'I': ["01110", "00100", "00100", "00100", "00100", "00100", "01110"],
+                'J': ["00111", "00010", "00010", "00010", "00010", "10010", "01100"],
+                'K': ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+                'L': ["10000", "10000", "10000", "10000", "10000", "10000", "11111"], 
+                'M': ["10001", "11011", "10101", "10001", "10001", "10001", "10001"], 
+                'N': ["10001", "11001", "10101", "10011", "10001", "10001", "10001"], 
+                'O': ["01110", "10001", "10001", "10001", "10001", "10001", "01110"], 
+                'P': ["11110", "10001", "10001", "11110", "10000", "10000", "10000"], 
+                'Q': ["01110", "10001", "10001", "10001", "10101", "10010", "01111"], 
+                'R': ["11110", "10001", "10001", "11110", "10100", "10010", "10001"], 
+                'S': ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+                'T': ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+                'U': ["10001", "10001", "10001", "10001", "10001", "10001", "01110"], 
+                'V': ["10001", "10001", "10001", "10001", "10001", "01010", "00100"], 
+                'W': ["10001", "10001", "10001", "10101", "10101", "11011", "10001"], 
+                'X': ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+                'Y': ["10001", "10001", "01010", "00100", "00100", "00100", "00100"], 
+                'Z': ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
+                '0': ["01110", "10001", "10011", "10101", "11001", "10001", "01110"], 
+                '1': ["00100", "01100", "00100", "00100", "00100", "00100", "01110"], 
+                '2': ["01110", "10001", "00001", "01110", "10000", "10000", "11111"],
+                '3': ["01110", "10001", "00001", "01110", "00001", "10001", "01110"], 
+                '4': ["00010", "00110", "01010", "10010", "11111", "00010", "00010"], 
+                '5': ["11111", "10000", "10000", "11110", "00001", "10001", "01110"], 
+                '6': ["01110", "10001", "10000", "11110", "10001", "10001", "01110"], 
+                '7': ["11111", "00001", "00010", "00100", "01000", "01000", "01000"], 
+                '8': ["01110", "10001", "10001", "01110", "10001", "10001", "01110"], 
+                '9': ["01110", "10001", "10001", "01111", "00001", "10001", "01110"],
+                '.': ["00000", "00000", "00000", "00000", "01100", "01100", "00000"], 
+                ',': ["00000", "00000", "00000", "00000", "01100", "01100", "00100"], 
+                '!': ["00100", "00100", "00100", "00100", "00100", "00000", "00100"], 
+                '?': ["01110", "10001", "00010", "00110", "00100", "00000", "00100"], 
+                ':': ["00000", "00000", "01100", "00000", "01100", "01100", "00000"], 
+                ';': ["00000", "00000", "01100", "00000", "01100", "01100", "00100"], 
+                '-': ["00000", "00000", "00000", "01110", "00000", "00000", "00000"], 
+                '_': ["00000", "00000", "00000", "00000", "00000", "00000", "11111"], 
+                ' ': ["00000", "00000", "00000", "00000", "00000", "00000", "00000"]
+            };
+
+            const contributionLevels = { 0: 0, 1: 1, 2: 5, 3: 10, 4: 20 };
+
+            function init() {
+                populateYearSelect();
+                createPalette();
+                createFontPreview();
+                createGrid();
+                addEventListeners();
+                updateGridForYear(parseInt(yearSelect.value));
+            }
+
+            function populateYearSelect() {
+                const currentYear = new Date().getFullYear();
+                for (let i = 0; i < 10; i++) {
+                    const year = currentYear - i;
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearSelect.appendChild(option);
+                }
+            }
+            
+            function createPalette() {
+                paletteContainer.innerHTML = '';
+                Object.keys(contributionLevels).forEach(level => {
+                    const colorBox = document.createElement('div');
+                    colorBox.className = `palette-color level-${level}`;
+                    if (parseInt(level) === selectedLevel) colorBox.classList.add('active');
+                    colorBox.dataset.level = level;
+                    paletteContainer.appendChild(colorBox);
+                });
+            }
+
+            function createFontPreview() {
+                fontPreviewContainer.innerHTML = '';
+                for (const char in FONT_5x7) {
+                    const item = document.createElement('div');
+                    item.className = 'font-char-item';
+                    const label = document.createElement('div');
+                    label.className = 'font-char-label';
+                    label.textContent = char === ' ' ? '" "' : char;
+                    const grid = document.createElement('div');
+                    grid.className = 'font-char-grid';
+                    const pattern = FONT_5x7[char];
+                    for (let r = 0; r < FONT_HEIGHT; r++) {
+                        for (let c = 0; c < FONT_WIDTH; c++) {
+                            const cell = document.createElement('div');
+                            cell.className = 'font-cell ' + (pattern[r][c] === '1' ? 'level-3' : 'level-0');
+                            grid.appendChild(cell);
+                        }
+                    }
+                    item.appendChild(label);
+                    item.appendChild(grid);
+                    fontPreviewContainer.appendChild(item);
+                }
+            }
+
+            function createGrid() {
+                gridContainer.innerHTML = '';
+                // IMPORTANT: Create cells column by column to match CSS grid-auto-flow
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.dataset.row = r;
+                        cell.dataset.col = c;
+                        gridContainer.appendChild(cell);
+                    }
+                }
+            }
+
+            function addEventListeners() {
+                yearSelect.addEventListener('change', (e) => updateGridForYear(parseInt(e.target.value)));
+                textInput.addEventListener('input', (e) => renderTextToGrid(e.target.value.toUpperCase()));
+                generateBtn.addEventListener('click', generateConfigFile);
+                paletteContainer.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('palette-color')) {
+                        selectedLevel = parseInt(e.target.dataset.level);
+                        document.querySelectorAll('.palette-color').forEach(p => p.classList.remove('active'));
+                        e.target.classList.add('active');
+                    }
+                });
+                gridContainer.addEventListener('mousedown', (e) => { isMouseDown = true; handleDraw(e); });
+                gridContainer.addEventListener('mouseup', () => isMouseDown = false);
+                gridContainer.addEventListener('mouseleave', () => isMouseDown = false);
+                gridContainer.addEventListener('mousemove', (e) => { if (isMouseDown) handleDraw(e); });
+                gridContainer.addEventListener('click', handleDraw);
+            }
+            
+            function updateGridForYear(year) {
+                const firstDayOfYear = new Date(year, 0, 1);
+                const dayOfWeek = firstDayOfYear.getDay(); // 0=Sun, 1=Mon...
+                gridStartDate = new Date(firstDayOfYear.setDate(firstDayOfYear.getDate() - dayOfWeek));
+                
+                disabledCells = Array(ROWS).fill(0).map(() => Array(COLS).fill(false));
+                
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
+                        const daysOffset = c * 7 + r;
+                        const cellDate = new Date(gridStartDate.getTime());
+                        cellDate.setDate(gridStartDate.getDate() + daysOffset);
+                        if (cellDate.getFullYear() !== year) {
+                            disabledCells[r][c] = true;
+                        }
+                    }
+                }
+                clearGridState();
+                redrawGrid();
+            }
+
+            function handleDraw(e) {
+                if (e.target.classList.contains('grid-cell')) {
+                    const row = parseInt(e.target.dataset.row);
+                    const col = parseInt(e.target.dataset.col);
+                    if (!disabledCells[row][col] && gridState[row][col] !== selectedLevel) {
+                        gridState[row][col] = selectedLevel;
+                        redrawCell(row, col);
+                    }
+                }
+            }
+
+            function renderTextToGrid(text) {
+                clearGridState();
+                let current_col = 1;
+
+                for (const char of text) {
+                    const pattern = FONT_5x7[char];
+                    if (pattern) {
+                        if (current_col + FONT_WIDTH >= COLS) break;
+                        for (let r = 0; r < FONT_HEIGHT; r++) {
+                            for (let c = 0; c < FONT_WIDTH; c++) {
+                                const targetCol = current_col + c;
+                                if (pattern[r][c] === '1' && !disabledCells[r][targetCol]) {
+                                    gridState[r][targetCol] = 4; // Use darkest color for text
+                                }
+                            }
+                        }
+                        current_col += FONT_WIDTH + 1;
+                    }
+                }
+                redrawGrid();
+            }
+
+            function clearGridState() {
+                gridState = Array(ROWS).fill(0).map(() => Array(COLS).fill(0));
+            }
+
+            function redrawGrid() {
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
+                        redrawCell(r, c);
+                    }
+                }
+            }
+            
+            function redrawCell(row, col) {
+                const cellIndex = col * ROWS + row;
+                const cell = gridContainer.children[cellIndex];
+                if (!cell) return;
+                
+                cell.className = 'grid-cell'; // Reset classes
+                if (disabledCells[row][col]) {
+                    cell.classList.add('disabled');
+                } else {
+                    cell.classList.add(`level-${gridState[row][col]}`);
+                }
+            }
+
+            function generateConfigFile() {
+                const repoName = document.getElementById('repoName').value.trim();
+                const userName = document.getElementById('userName').value.trim();
+                const userEmail = document.getElementById('userEmail').value.trim();
+
+                if (!repoName || !userName || !userEmail) {
+                    alert('请填写所有配置信息！(仓库名称, Git 用户名, Git 邮箱)');
+                    return;
+                }
+
+                // Format pattern as an array of strings
+                const patternAsStringArray = gridState.map(row => row.join(''));
+                
+                const config = {
+                    git_config: { user_name: userName, user_email: userEmail },
+                    repository_name: repoName,
+                    start_date: gridStartDate.toISOString().split('T')[0],
+                    levels: contributionLevels,
+                    pattern: patternAsStringArray
+                };
+
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.href = dataStr;
+                downloadAnchorNode.download = "pattern.json";
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            }
+
+            init();
+        });
+    </script>
+</body>
+</html>
