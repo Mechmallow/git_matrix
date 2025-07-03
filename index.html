@@ -275,7 +275,7 @@
 
             function populateYearSelect() {
                 const currentYear = new Date().getFullYear();
-                for (let i = 0; i < 10; i++) {
+                for (let i = 0; i < 20; i++) {
                     const year = currentYear - i;
                     const option = document.createElement('option');
                     option.value = year;
@@ -395,7 +395,7 @@
                             for (let c = 0; c < FONT_WIDTH; c++) {
                                 const targetCol = current_col + c;
                                 if (pattern[r][c] === '1' && !disabledCells[r][targetCol]) {
-                                    gridState[r][targetCol] = 1; // Use darkest color for text
+                                    gridState[r][targetCol] = selectedLevel; // Use selected color for text
                                 }
                             }
                         }
